@@ -1,0 +1,19 @@
+From: ohrensessel <git@ohrensessel.net>
+Date: Mon, 7 Apr 2014 11:16:08 +0200
+Subject: ensure location and owner are correctly disable, even when updating
+
+diff --git a/gluon/gluon-node-info/files/lib/gluon/upgrade/node-info/invariant/020-add-disable-entries b/gluon/gluon-node-info/files/lib/gluon/upgrade/node-info/invariant/020-add-disable-entries
+new file mode 100755
+index 0000000..9733863
+--- /dev/null
++++ b/gluon/gluon-node-info/files/lib/gluon/upgrade/node-info/invariant/020-add-disable-entries
+@@ -0,0 +1,9 @@
++#!/bin/sh
++# this is a temporary update script to ensure location and owner info are removed from the config mode, even when updating
++
++. /lib/functions.sh
++
++uci_set gluon-node-info '@location[0]' disable_location '1'
++uci_set gluon-node-info '@owner[0]' disable_owner '1'
++
++uci_commit gluon-node-info
