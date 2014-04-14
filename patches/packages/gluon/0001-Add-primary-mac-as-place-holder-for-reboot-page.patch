@@ -1,0 +1,35 @@
+From: ohrensessel <git@ohrensessel.net>
+Date: Mon, 14 Apr 2014 15:00:41 +0200
+Subject: Add primary mac as place holder for reboot page
+
+diff --git a/gluon/gluon-config-mode/files/usr/lib/lua/luci/controller/gluon-config-mode/index.lua b/gluon/gluon-config-mode/files/usr/lib/lua/luci/controller/gluon-config-mode/index.lua
+index afcc83f..8534526 100644
+--- a/gluon/gluon-config-mode/files/usr/lib/lua/luci/controller/gluon-config-mode/index.lua
++++ b/gluon/gluon-config-mode/files/usr/lib/lua/luci/controller/gluon-config-mode/index.lua
+@@ -12,8 +12,13 @@ $Id$
+ 
+ module("luci.controller.gluon-config-mode.index", package.seeall)
+ 
++local util = require "luci.util"
+ local meshvpn_name = "mesh_vpn"
+ 
++function chomp(s)
++  return (s:gsub("^(.-)\n?$", "%1"))
++end
++
+ function index()
+   local uci_state = luci.model.uci.cursor_state()
+ 
+@@ -57,10 +62,11 @@ function action_reboot()
+   uci:commit("gluon-config-mode")
+ 
+   hostname = uci:get_first("system", "system", "hostname")
++  mac = chomp(util.exec(". /lib/gluon/functions/sysconfig.sh; sysconfig primary_mac"))
+ 
+   if nixio.fork() ~= 0 then
+     luci.template.render("gluon-config-mode/reboot",
+-      {pubkey=pubkey, hostname=hostname})
++      {pubkey=pubkey, hostname=hostname, mac=mac})
+   else
+     debug.setfenv(io.stdout, debug.getfenv(io.open '/dev/null'))
+     io.stdout:close()
