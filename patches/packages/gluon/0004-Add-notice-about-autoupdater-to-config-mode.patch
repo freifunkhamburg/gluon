@@ -1,0 +1,38 @@
+From: ohrensessel <git@ohrensessel.net>
+Date: Wed, 16 Apr 2014 23:56:06 +0200
+Subject: Add notice about autoupdater to config mode
+
+diff --git a/gluon/gluon-config-mode/files/usr/lib/lua/luci/model/cbi/gluon-config-mode/wizard.lua b/gluon/gluon-config-mode/files/usr/lib/lua/luci/model/cbi/gluon-config-mode/wizard.lua
+index c30045c..eb6ed9d 100644
+--- a/gluon/gluon-config-mode/files/usr/lib/lua/luci/model/cbi/gluon-config-mode/wizard.lua
++++ b/gluon/gluon-config-mode/files/usr/lib/lua/luci/model/cbi/gluon-config-mode/wizard.lua
+@@ -11,6 +11,15 @@ f.reset = false
+ f.template = "gluon-config-mode/cbi/wizard"
+ f.submit = "Fertig"
+ 
++if uci:get_bool("autoupdater", "settings", "enabled")  then
++  f:set(nil, "autoupdater_msg", [[Dieser Knoten aktualisiert seine Firmware <b>automatisch</b>,
++  sobald eine neue Version vorliegt. Falls du dies nicht möchtest,
++  kannst du die Funktion im <i>Expertmode</i> deaktivieren.]])
++else
++  f:set(nil, "autoupdater_msg", [[Dieser Knoten aktualisiert seine Firmware <b>nicht automatisch</b>.
++  Diese Funktion kannst du im <i>Expertmode</i> aktivieren.]])
++end
++
+ s = f:section(SimpleSection, nil, nil)
+ 
+ o = s:option(Value, "_hostname", "Name dieses Knotens")
+diff --git a/gluon/gluon-config-mode/generate/usr/lib/lua/luci/view/gluon-config-mode/cbi/wizard.htm b/gluon/gluon-config-mode/generate/usr/lib/lua/luci/view/gluon-config-mode/cbi/wizard.htm
+index c67257e..404c89a 100644
+--- a/gluon/gluon-config-mode/generate/usr/lib/lua/luci/view/gluon-config-mode/cbi/wizard.htm
++++ b/gluon/gluon-config-mode/generate/usr/lib/lua/luci/view/gluon-config-mode/cbi/wizard.htm
+@@ -2,6 +2,9 @@
+ <p>
+   @config_mode.msg_welcome@
+ </p>
++<p>
++<%=self.data["autoupdater_msg"]%>
++</p>
+ 
+ <% if not self.embedded then %>
+ <form method="post" enctype="multipart/form-data" action="<%=REQUEST_URI%>">
