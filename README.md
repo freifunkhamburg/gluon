@@ -12,7 +12,7 @@ the images only, just use:
 
 The built images can be found in the directory `images`.
 
-For the build reserve 6GB of disk space. The building requires packages
+For the build reserve 6GB of disk space. The build requires packages
 for `subversion`, ncurses headers (`libncurses-dev`) and zlib headers
 (`libz-dev`).`
 
@@ -29,7 +29,41 @@ will also call `make clean` on the OpenWRT tree, and
 
     make dirclean
 
-will do all this, and call `make dirclean` on the OpenWRT tree.
+will do all this, and call `make dirclean` on the OpenWRT tree. Of these, `make cleanall`
+is the most useful as it ensures that the kernel and all packages are rebuilt (which won't
+be done when only patches have changed), but doesn't rebuild the toolchain unnecessarily.
+
+So all in all, to update and rebuild a Gluon build tree, the following commands should be used:
+
+    git pull
+    (cd site && git pull)
+    make update
+    make cleanall
+    make
+
+
+# The autoupdater
+
+Gluon contains an automatic update system which can be configured in the site configuration.
+
+By default, the autoupdater is disabled (as it is usually not helpful to have unexpected updates
+during development), but it can be enabled by setting the variable GLUON_BRANCH when building
+to override the default branch set in the set in the site configuration.
+
+A manifest file for the updater can be generated with `make manifest`. A signing script (using
+ecdsautils) can by found in the `contrib` directory.
+
+A fully automated nightly build could use the following commands:
+
+    git pull
+    (cd site && git pull)
+    make update
+    make cleanall
+    make -j5 GLUON_BRANCH=experimental
+    make manifest GLUON_BRANCH=experimental
+    contrib/sign.sh $SECRETKEY images/sysupgrade/experimental.manifest
+    cp -r images /where/to/put/this/experimental
+    mv /where/to/put/this/experimental/experimental.manifest /where/to/put/this/experimental/manifest
 
 
 # Development

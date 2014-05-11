@@ -7,6 +7,7 @@ export LC_ALL LANG
 empty:=
 space:= $(empty) $(empty)
 
+GLUONMAKE_EARLY = $(SUBMAKE) -C $(GLUON_ORIGOPENWRTDIR) -f $(GLUONDIR)/Makefile GLUON_TOOLS=0
 GLUONMAKE = $(SUBMAKE) -C $(GLUON_OPENWRTDIR) -f $(GLUONDIR)/Makefile
 
 ifneq ($(OPENWRT_BUILD),1)
@@ -15,8 +16,12 @@ GLUONDIR:=${CURDIR}
 
 include $(GLUONDIR)/include/gluon.mk
 
-TOPDIR:=$(GLUON_OPENWRTDIR)
+TOPDIR:=$(GLUON_ORIGOPENWRTDIR)
 export TOPDIR
+
+
+GLUON_TARGET ?= ar71xx-generic
+export GLUON_TARGET
 
 
 update: FORCE
@@ -39,8 +44,9 @@ update-patches: FORCE
 _SINGLE=export MAKEFLAGS=$(space);
 
 override OPENWRT_BUILD=1
+override GLUON_TOOLS=1
 GREP_OPTIONS=
-export OPENWRT_BUILD GREP_OPTIONS
+export OPENWRT_BUILD GLUON_TOOLS GREP_OPTIONS
 
 -include $(TOPDIR)/include/debug.mk
 -include $(TOPDIR)/include/depends.mk
@@ -54,43 +60,53 @@ endef
 define GluonModel
 endef
 
-include $(GLUONDIR)/include/profiles.mk
+include $(GLUONDIR)/targets/targets.mk
 
-CheckExternal := test -d $(GLUON_OPENWRTDIR) || (echo 'You don'"'"'t seem to have optained the external repositories needed by Gluon; please call `make update` first!'; false)
 
-all: FORCE
+CheckExternal := test -d $(GLUON_ORIGOPENWRTDIR) || (echo 'You don'"'"'t seem to have obtained the external repositories needed by Gluon; please call `make update` first!'; false)
+
+
+prepare-target: FORCE
 	@$(CheckExternal)
+	+@$(GLUONMAKE_EARLY) prepare-target
+
+
+all: prepare-target
 	+@$(GLUONMAKE) prepare
 	+@$(GLUONMAKE) images
 
-download prepare images: FORCE
+prepare: prepare-target
+	+@$(GLUONMAKE) $@
+
+clean dirclean download images: FORCE
 	@$(CheckExternal)
+	+@$(GLUONMAKE_EARLY) maybe-prepare-target
+	+@$(GLUONMAKE) $@
+
+toolchain/% package/% target/%: FORCE
+	@$(CheckExternal)
+	+@$(GLUONMAKE_EARLY) maybe-prepare-target
 	+@$(GLUONMAKE) $@
 
 manifest: FORCE
-	@$(CheckExternal)
 	[ -n "$(GLUON_BRANCH)" ] || (echo 'Please set GLUON_BRANCH to create a manifest.'; false)
+	@$(CheckExternal)
+	+@$(GLUONMAKE_EARLY) maybe-prepare-target
 	+@$(GLUONMAKE) $@
 
-dirclean: clean
-	@$(CheckExternal)
-	+@$(SUBMAKE) -C $(TOPDIR) -r dirclean
-
 cleanall: clean
-	@$(CheckExternal)
-	+@$(SUBMAKE) -C $(TOPDIR) -r clean
-
-clean:
-	@$(CheckExternal)
-	+@$(GLUONMAKE) clean
+	;
 
 else
 
-include $(GLUONDIR)/include/gluon.mk
-
-include $(TOPDIR)/include/host.mk
+TOPDIR=${CURDIR}
+export TOPDIR
 
 include rules.mk
+
+include $(GLUONDIR)/include/gluon.mk
+
+include $(INCLUDE_DIR)/host.mk
 include $(INCLUDE_DIR)/depends.mk
 include $(INCLUDE_DIR)/subdir.mk
 
@@ -98,14 +114,9 @@ include package/Makefile
 include tools/Makefile
 include toolchain/Makefile
 
-BOARD := ar71xx
-override SUBTARGET := generic
 
 PROFILES :=
 PROFILE_PACKAGES :=
-
-gluon_prepared_stamp := $(GLUON_BUILDDIR)/$(BOARD)/prepared
-
 
 define Profile
   $(eval $(call Profile/Default))
@@ -114,11 +125,6 @@ define Profile
 endef
 
 define GluonProfile
-image/$(1): $(gluon_prepared_stamp)
-	+$(GLUONMAKE) image PROFILE="$(1)" V=s$(OPENWRT_VERBOSE)
-
-CheckSite := (perl $(GLUON_SITEDIR)/site.conf 2>&1) > /dev/null || (echo 'Your site configuration did not pass validation; please verify yourself with `perl site.conf` and fix the problems.';false)
-
 PROFILES += $(1)
 PROFILE_PACKAGES += $(filter-out -%,$($(1)_PACKAGES) $(2) $(GLUON_$(1)_SITE_PACKAGES))
 GLUON_$(1)_DEFAULT_PACKAGES := $(2)
@@ -130,9 +136,53 @@ GLUON_$(1)_MODELS += $(2)
 GLUON_$(1)_MODEL_$(2) := $(3)
 endef
 
-include $(INCLUDE_DIR)/target.mk
-include $(GLUONDIR)/include/profiles.mk
 
+include $(GLUONDIR)/targets/targets.mk
+
+BOARD := $(GLUON_TARGET_$(GLUON_TARGET)_BOARD)
+override SUBTARGET := $(GLUON_TARGET_$(GLUON_TARGET)_SUBTARGET)
+
+target_prepared_stamp := $(BOARD_BUILDDIR)/target-prepared
+gluon_prepared_stamp := $(BOARD_BUILDDIR)/prepared
+
+
+include $(INCLUDE_DIR)/target.mk
+
+
+gluon-tools: $(STAGING_DIR_HOST)/bin/stat
+
+feeds: FORCE
+	rm -rf $(TOPDIR)/package/feeds
+	mkdir $(TOPDIR)/package/feeds
+	[ ! -f $(GLUON_SITEDIR)/modules ] || . $(GLUON_SITEDIR)/modules && for feed in $$GLUON_SITE_FEEDS; do ln -s ../../../packages/$$feed $(TOPDIR)/package/feeds/$$feed; done
+	. $(GLUONDIR)/modules && for feed in $$GLUON_FEEDS; do ln -s ../../../packages/$$feed $(TOPDIR)/package/feeds/$$feed; done
+	+$(NO_TRACE_MAKE) -C $(TOPDIR) prepare-tmpinfo OPENWRT_BUILD=0
+
+config: FORCE
+	( \
+		cat $(GLUONDIR)/include/config $(GLUONDIR)/targets/$(GLUON_TARGET)/config; \
+		echo '$(patsubst %,CONFIG_PACKAGE_%=m,$(sort $(filter-out -%,$(GLUON_DEFAULT_PACKAGES) $(GLUON_SITE_PACKAGES) $(PROFILE_PACKAGES))))' \
+			| sed -e 's/ /\n/g'; \
+	) > .config
+	+$(NO_TRACE_MAKE) defconfig OPENWRT_BUILD=0
+
+prepare-target: FORCE
+	mkdir -p $(GLUON_OPENWRTDIR)
+	for dir in build_dir dl staging_dir tmp; do \
+		mkdir -p $(GLUON_ORIGOPENWRTDIR)/$$dir; \
+	done
+	for link in build_dir Config.in dl include Makefile package rules.mk scripts staging_dir target tmp toolchain tools; do \
+		ln -sf $(GLUON_ORIGOPENWRTDIR)/$$link $(GLUON_OPENWRTDIR); \
+	done
+	+$(GLUONMAKE_EARLY) feeds
+	+$(GLUONMAKE_EARLY) gluon-tools
+	+$(GLUONMAKE) config
+	touch $(target_prepared_stamp)
+
+$(target_prepared_stamp):
+	+$(GLUONMAKE_EARLY) prepare-target
+
+maybe-prepare-target: $(target_prepared_stamp)
 
 $(BUILD_DIR)/.prepared: Makefile
 	@mkdir -p $$(dirname $@)
@@ -141,42 +191,19 @@ $(BUILD_DIR)/.prepared: Makefile
 $(toolchain/stamp-install): $(tools/stamp-install)
 $(package/stamp-compile): $(package/stamp-cleanup)
 
+
 clean: FORCE
+	+$(SUBMAKE) clean
+
+dirclean: FORCE
+	+$(SUBMAKE) dirclean
 	rm -rf $(GLUON_BUILDDIR)
-
-refresh_feeds: FORCE
-	export MAKEFLAGS=V=s$(OPENWRT_VERBOSE); \
-	export SCAN_COOKIE=; \
-	scripts/feeds uninstall -a; \
-	scripts/feeds update -a; \
-	scripts/feeds install -a
-
 
 export GLUON_GENERATE := $(GLUONDIR)/scripts/generate.sh
 export GLUON_CONFIGURE := $(GLUONDIR)/scripts/configure.pl
 
 
-feeds: FORCE
-	( \
-		[ ! -f $(GLUON_SITEDIR)/modules ] || . $(GLUON_SITEDIR)/modules && for feed in $$GLUON_SITE_FEEDS; do echo src-link $$feed ../../packages/$$feed; done; \
-		. $(GLUONDIR)/modules && for feed in $$GLUON_FEEDS; do echo src-link $$feed ../../packages/$$feed; done; \
-	) > feeds.conf
-	+$(GLUONMAKE) refresh_feeds V=s$(OPENWRT_VERBOSE)
-
-config: FORCE
-	echo \
-		'CONFIG_TARGET_$(BOARD)=y' \
-		'CONFIG_TARGET_ROOTFS_JFFS2=n' \
-		'CONFIG_BUSYBOX_CONFIG_SHA512SUM=y' \
-		'CONFIG_ATH_USER_REGD=y' \
-		'$(patsubst %,CONFIG_PACKAGE_%=m,$(sort $(GLUON_DEFAULT_PACKAGES) $(GLUON_SITE_PACKAGES) $(PROFILE_PACKAGES)))' \
-		| sed -e 's/ /\n/g' > .config
-	$(_SINGLE)$(SUBMAKE) defconfig OPENWRT_BUILD=
-
-.config:
-	+$(GLUONMAKE) config
-
-download: .config FORCE
+download: FORCE
 	+$(SUBMAKE) tools/download
 	+$(SUBMAKE) toolchain/download
 	+$(SUBMAKE) package/download
@@ -199,13 +226,14 @@ prepare-image: FORCE
 	cp $(KERNEL_BUILD_DIR)/vmlinux $(KERNEL_BUILD_DIR)/vmlinux.elf $(BOARD_KDIR)/
 	+$(SUBMAKE) -C $(TOPDIR)/target/linux/$(BOARD)/image -f $(GLUONDIR)/include/Makefile.image prepare KDIR="$(BOARD_KDIR)"
 
+CheckSite := (perl $(GLUON_SITEDIR)/site.conf 2>&1) > /dev/null || (echo 'Your site configuration did not pass validation; please verify yourself with `perl site.conf` and fix the problems.';false)
+
 prepare: FORCE
 	@$(CheckSite)
 
-	mkdir -p $(GLUON_IMAGEDIR) $(GLUON_BUILDDIR)/$(BOARD)
-	echo 'src packages file:../openwrt/bin/$(BOARD)/packages' > $(GLUON_BUILDDIR)/$(BOARD)/opkg.conf
+	mkdir -p $(GLUON_IMAGEDIR) $(BOARD_BUILDDIR)
+	echo 'src packages file:../openwrt/bin/$(BOARD)/packages' > $(BOARD_BUILDDIR)/opkg.conf
 
-	+$(GLUONMAKE) feeds
 	+$(GLUONMAKE) config
 	+$(GLUONMAKE) toolchain
 	+$(GLUONMAKE) kernel
@@ -280,16 +308,19 @@ image: FORCE
 	+$(GLUONMAKE) package_install
 
 	$(call Image/mkfs/prepare)
-	$(_SINGLE)$(NO_TRACE_MAKE) -C $(TOPDIR)/target/linux/$(BOARD)/image install TARGET_BUILD=1 IB=1 IMG_PREFIX="$(IMAGE_PREFIX)-$(BOARD)$(if $(SUBTARGET),-$(SUBTARGET))" \
+	$(_SINGLE)$(NO_TRACE_MAKE) -C $(TOPDIR)/target/linux/$(BOARD)/image install TARGET_BUILD=1 IB=1 IMG_PREFIX=gluon \
 		PROFILE="$(PROFILE)" KDIR="$(PROFILE_KDIR)" TARGET_DIR="$(TARGET_DIR)" BIN_DIR="$(BIN_DIR)" TMP_DIR="$(TMP_DIR)"
 
 	$(foreach model,$(GLUON_$(PROFILE)_MODELS), \
 		rm -f $(GLUON_IMAGEDIR)/factory/gluon-*-$(GLUON_$(PROFILE)_MODEL_$(model)).bin && \
 		rm -f $(GLUON_IMAGEDIR)/sysupgrade/gluon-*-$(GLUON_$(PROFILE)_MODEL_$(model))-sysupgrade.bin && \
 		\
-		cp $(BIN_DIR)/$(IMAGE_PREFIX)-$(BOARD)$(if $(SUBTARGET),-$(SUBTARGET))-$(model)-factory.bin $(GLUON_IMAGEDIR)/factory/$(IMAGE_PREFIX)-$(GLUON_$(PROFILE)_MODEL_$(model)).bin && \
-		cp $(BIN_DIR)/$(IMAGE_PREFIX)-$(BOARD)$(if $(SUBTARGET),-$(SUBTARGET))-$(model)-sysupgrade.bin $(GLUON_IMAGEDIR)/sysupgrade/$(IMAGE_PREFIX)-$(GLUON_$(PROFILE)_MODEL_$(model))-sysupgrade.bin && \
+		cp $(BIN_DIR)/gluon-$(model)-factory.bin $(GLUON_IMAGEDIR)/factory/$(IMAGE_PREFIX)-$(GLUON_$(PROFILE)_MODEL_$(model)).bin && \
+		cp $(BIN_DIR)/gluon-$(model)-sysupgrade.bin $(GLUON_IMAGEDIR)/sysupgrade/$(IMAGE_PREFIX)-$(GLUON_$(PROFILE)_MODEL_$(model))-sysupgrade.bin && \
 	) :
+
+image/%: $(gluon_prepared_stamp)
+	+$(GLUONMAKE) image PROFILE="$(patsubst image/%,%,$@)" V=s$(OPENWRT_VERBOSE)
 
 call_image/%: FORCE
 	+$(GLUONMAKE) $(patsubst call_image/%,image/%,$@)
@@ -311,6 +342,6 @@ manifest: FORCE
 	) :)) > $(GLUON_IMAGEDIR)/sysupgrade/$(GLUON_BRANCH).manifest
 
 
-.PHONY: all images prepare clean cleanall
+.PHONY: all images prepare clean cleanall gluon-tools
 
 endif
