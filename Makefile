@@ -112,6 +112,7 @@ include $(INCLUDE_DIR)/subdir.mk
 include package/Makefile
 include tools/Makefile
 include toolchain/Makefile
+include target/Makefile
 
 
 PROFILES :=
@@ -148,7 +149,8 @@ gluon_prepared_stamp := $(BOARD_BUILDDIR)/prepared
 include $(INCLUDE_DIR)/target.mk
 
 
-gluon-tools: $(STAGING_DIR_HOST)/bin/stat
+package/lua/host/install: tools/sed/install
+gluon-tools: package/lua/host/install
 
 prepare-tmpinfo: FORCE
 	mkdir -p tmp/info
@@ -210,8 +212,9 @@ dirclean: FORCE
 	+$(SUBMAKE) dirclean
 	rm -rf $(GLUON_BUILDDIR)
 
-export GLUON_GENERATE := $(GLUONDIR)/scripts/generate.sh
-export GLUON_CONFIGURE := $(GLUONDIR)/scripts/configure.pl
+
+export MD5SUM := $(GLUONDIR)/scripts/md5sum.sh
+export SHA512SUM := $(GLUONDIR)/scripts/sha512sum.sh
 
 
 download: FORCE
@@ -237,10 +240,9 @@ prepare-image: FORCE
 	cp $(KERNEL_BUILD_DIR)/vmlinux $(KERNEL_BUILD_DIR)/vmlinux.elf $(BOARD_KDIR)/
 	+$(SUBMAKE) -C $(TOPDIR)/target/linux/$(BOARD)/image -f $(GLUONDIR)/include/Makefile.image prepare KDIR="$(BOARD_KDIR)"
 
-CheckSite := (perl $(GLUON_SITEDIR)/site.conf 2>&1) > /dev/null || (echo 'Your site configuration did not pass validation; please verify yourself with `perl site.conf` and fix the problems.';false)
-
 prepare: FORCE
-	@$(CheckSite)
+	@$(STAGING_DIR_HOST)/bin/lua $(GLUONDIR)/packages/gluon/gluon/gluon-core/files/usr/lib/lua/gluon/site_config.lua \
+		|| (echo 'Your site configuration did not pass validation.'; false)
 
 	mkdir -p $(GLUON_IMAGEDIR) $(BOARD_BUILDDIR)
 	echo 'src packages file:../openwrt/bin/$(BOARD)/packages' > $(BOARD_BUILDDIR)/opkg.conf
@@ -342,7 +344,7 @@ manifest: FORCE
 				[ -e "$$file" ] && echo \
 					'$(GLUON_$(profile)_MODEL_$(model))' \
 					"$$(echo "$$file" | sed -n -r -e 's/^gluon-$(call regex-escape,$(GLUON_SITE_CODE))-(.*)-$(call regex-escape,$(GLUON_$(profile)_MODEL_$(model)))-sysupgrade\.bin$$/\1/p')" \
-					"$$(sha512sum "$$file" | awk '{print $$1}')" \
+					"$$($(SHA512SUM) "$$file")" \
 					"$$file" && break; \
 			done; \
 		) \
