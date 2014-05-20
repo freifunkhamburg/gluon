@@ -3,7 +3,7 @@ Date: Wed, 16 Apr 2014 23:56:06 +0200
 Subject: Add notice about autoupdater to config mode
 
 diff --git a/gluon/gluon-config-mode/files/usr/lib/lua/luci/model/cbi/gluon-config-mode/wizard.lua b/gluon/gluon-config-mode/files/usr/lib/lua/luci/model/cbi/gluon-config-mode/wizard.lua
-index c30045c..eb6ed9d 100644
+index de5d42e..ca9cc7d 100644
 --- a/gluon/gluon-config-mode/files/usr/lib/lua/luci/model/cbi/gluon-config-mode/wizard.lua
 +++ b/gluon/gluon-config-mode/files/usr/lib/lua/luci/model/cbi/gluon-config-mode/wizard.lua
 @@ -11,6 +11,15 @@ f.reset = false
@@ -22,13 +22,13 @@ index c30045c..eb6ed9d 100644
  s = f:section(SimpleSection, nil, nil)
  
  o = s:option(Value, "_hostname", "Name dieses Knotens")
-diff --git a/gluon/gluon-config-mode/generate/usr/lib/lua/luci/view/gluon-config-mode/cbi/wizard.htm b/gluon/gluon-config-mode/generate/usr/lib/lua/luci/view/gluon-config-mode/cbi/wizard.htm
-index c67257e..404c89a 100644
---- a/gluon/gluon-config-mode/generate/usr/lib/lua/luci/view/gluon-config-mode/cbi/wizard.htm
-+++ b/gluon/gluon-config-mode/generate/usr/lib/lua/luci/view/gluon-config-mode/cbi/wizard.htm
-@@ -2,6 +2,9 @@
+diff --git a/gluon/gluon-config-mode/files/usr/lib/lua/luci/view/gluon-config-mode/cbi/wizard.htm b/gluon/gluon-config-mode/files/usr/lib/lua/luci/view/gluon-config-mode/cbi/wizard.htm
+index cadfb00..cc5ce36 100644
+--- a/gluon/gluon-config-mode/files/usr/lib/lua/luci/view/gluon-config-mode/cbi/wizard.htm
++++ b/gluon/gluon-config-mode/files/usr/lib/lua/luci/view/gluon-config-mode/cbi/wizard.htm
+@@ -8,6 +8,9 @@
  <p>
-   @config_mode.msg_welcome@
+ 	<%= template.render_string(site.config_mode.msg_welcome, {hostname=hostname, sysconfig=sysconfig}) %>
  </p>
 +<p>
 +<%=self.data["autoupdater_msg"]%>

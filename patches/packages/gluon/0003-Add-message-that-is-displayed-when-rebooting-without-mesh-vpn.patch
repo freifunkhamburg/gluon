@@ -2,18 +2,18 @@ From: ohrensessel <git@ohrensessel.net>
 Date: Wed, 16 Apr 2014 21:25:13 +0200
 Subject: Add message that is displayed when rebooting without mesh vpn
 
-diff --git a/gluon/gluon-config-mode/generate/usr/lib/lua/luci/view/gluon-config-mode/reboot.htm b/gluon/gluon-config-mode/generate/usr/lib/lua/luci/view/gluon-config-mode/reboot.htm
-index 26a09a2..1f83dea 100644
---- a/gluon/gluon-config-mode/generate/usr/lib/lua/luci/view/gluon-config-mode/reboot.htm
-+++ b/gluon/gluon-config-mode/generate/usr/lib/lua/luci/view/gluon-config-mode/reboot.htm
-@@ -33,6 +33,10 @@ $Id$
-             <%=pubkey%>
+diff --git a/gluon/gluon-config-mode/files/usr/lib/lua/luci/view/gluon-config-mode/reboot.htm b/gluon/gluon-config-mode/files/usr/lib/lua/luci/view/gluon-config-mode/reboot.htm
+index db9cbc2..7b2070f 100644
+--- a/gluon/gluon-config-mode/files/usr/lib/lua/luci/view/gluon-config-mode/reboot.htm
++++ b/gluon/gluon-config-mode/files/usr/lib/lua/luci/view/gluon-config-mode/reboot.htm
+@@ -21,6 +21,10 @@
+             <%= pubkey %>
            </div>
          </fieldset>
 +        <% else %>
 +        <p>
-+          @config_mode.msg_nopubkey@
++          <%= luci.template.render_string(site.config_mode.msg_nopubkey) %> 
 +        </p>
          <% end %>
          <fieldset class="cbi-section">
-           @config_mode.msg_reboot@
+           <%= luci.template.render_string(site.config_mode.msg_reboot) %>
