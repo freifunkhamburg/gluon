@@ -3,7 +3,7 @@ Date: Wed, 16 Apr 2014 23:56:06 +0200
 Subject: Add notice about autoupdater to config mode
 
 diff --git a/gluon/gluon-config-mode/files/usr/lib/lua/luci/model/cbi/gluon-config-mode/wizard.lua b/gluon/gluon-config-mode/files/usr/lib/lua/luci/model/cbi/gluon-config-mode/wizard.lua
-index c30045c..eb6ed9d 100644
+index de5d42e..ca9cc7d 100644
 --- a/gluon/gluon-config-mode/files/usr/lib/lua/luci/model/cbi/gluon-config-mode/wizard.lua
 +++ b/gluon/gluon-config-mode/files/usr/lib/lua/luci/model/cbi/gluon-config-mode/wizard.lua
 @@ -11,6 +11,15 @@ f.reset = false
