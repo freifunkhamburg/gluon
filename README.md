@@ -1,3 +1,11 @@
+# DO NOT USE
+Freifunk Hamburg does not use this fork anymore. The firmware is instead build using the official gluon repository
+and the Freifunk Hamburg site-ffhh repository. Check there for information on how to build the firmware.
+
+
+
+
+
 To build Gluon, after checking out the repository change to the source root directory
 to  perform the following commands:
 
